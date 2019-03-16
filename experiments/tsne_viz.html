@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test</title>
+  <script src="http://localhost:8080/ml5.js"></script>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tsne"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.13.3/dist/tf.min.js"> </script>
+
+    <h1>word2vec</h1>
+  <p id="status">Loading Model...</p>
+  <div id="tsneSVG"></div>
+
+  <!-- Barak is an asshole -->
+
+  <script>
+    let word2Vec = ml5.word2vec('wordvecs10000.json', modelLoaded)
+    // word2Vec.add(['cat','dog']).then(result =>console.log(result))
+
+    // let difference = await word2Vec.subtract('kitten', 'cat');
+    let path;
+
+    function setup() {
+        noCanvas();
+    }
+
+    function modelLoaded() {
+        select('#status').html('Model Loaded');
+        tsnefy();
+    }
+
+    async function tsnefy() {
+      data = Object.keys(word2Vec.model).map(k => Array.prototype.slice.call(word2Vec.model[k].dataSync()));
+      data_keys = Object.keys(word2Vec.model);
+      word2vec_tsne_tensor = ml5.tf.tensor2d(data);
+      tsneOpt = tsne.tsne(word2vec_tsne_tensor);
+      await tsneOpt.compute().then(() => {
+        tsneCoordinates = tsneOpt.coordsArray();
+      })
+    }
+
+
+
+</script>
+
+</body>
+</html>

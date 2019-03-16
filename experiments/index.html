@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test</title>
+  <script src="http://localhost:8080/ml5.js"></script>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.2/addons/p5.dom.min.js"></script>
+
+    <h1>word2vec</h1>
+  <p id="status">Loading Model...</p>
+  <div>
+    <p>Steps:</p>
+    <input id="steps" value="5">
+    <p><br></p>
+
+    <input id="start" value="fish">
+    <div id="between"></div>
+    <input id="end" value="pizza">
+  </div>
+  <p><br></p>
+<!-- 
+  <p>Steps:</p>
+  <input id="steps2" value="5">
+  <p><br></p>
+  <div>
+    <input id="start2" value="fish">
+    <div id="between2"></div>
+    <input id="end2" value="pizza">
+  </div> -->
+
+  <script>
+    function modelLoaded() {
+      console.log("model loaded")
+    }
+
+    let word2Vec = ml5.word2vec('glove6B50d-top25k.json', modelLoaded)
+
+    function setup() {
+      noCanvas();
+    }
+
+    function modelLoaded() {
+      select('#status').html('Model Loaded');
+      select('#steps').changed(go);
+      select('#start').changed(go);
+      select('#end').changed(go);
+      go();
+    }
+
+
+    function go() {
+      let resultDiv = document.getElementById('between')
+      resultDiv.innerHTML = ""
+      let from = select('#start').value();
+      let to = select('#end').value();
+      let steps = parseInt(select('#steps').value());
+      step(from, to, steps)
+    }
+
+    async function step(from, to, steps) {
+
+      let difference = await word2Vec.subtract([to,from]);
+      let increment = await word2Vec.divide([difference.vector_result, steps])
+      let resultDiv = document.getElementById('between');
+
+      console.log('increment: ' + increment.vector_result[0]);
+
+      console.log('start: ' + word2Vec.model[from].dataSync()[0]);
+
+      let currentPosition = from;
+      for(var i = 0; i < steps; i++){
+        let nextPosition = await word2Vec.add([increment.vector_result, currentPosition])
+        currentPosition = nextPosition.vector_result;
+        console.log(nextPosition.vector_result[0]);
+        console.log(nextPosition)
+        let currentWord = nextPosition.nearest_words[0].word;
+        let pNode = document.createElement('p')
+        let textNode = document.createTextNode(currentWord)
+        let newEntry = pNode.appendChild(textNode)
+        let lineBreak = document.createElement('br')
+        resultDiv.appendChild(newEntry)
+        resultDiv.appendChild(lineBreak)
+    }
+    console.log('end: ' + word2Vec.model[to].dataSync()[0]);
+  }
+
+
+    // async function step2(from , to, steps) {
+    //   let resultDiv2 = document.getElementById('between2');
+    //   for(var i = 0; i < steps; i++){
+    //     const fromRatio = (steps - i) / steps
+    //     const toRatio = i / steps
+
+    //     let fromVec
+    //     let toVec
+
+    //     try {
+    //       fromVec = word2Vec.model[from].dataSync()
+    //       toVec = word2Vec.model[to].dataSync()
+    //     } catch (error) {
+    //       console.log("Words not found in model")
+    //       return
+    //     }
+
+    //     let fromPart = await word2Vec.multiply([fromVec, fromRatio])
+    //     console.log(fromPart)
+    //     let toPart = await word2Vec.multiply([toVec, toRatio])
+    //     console.log(toPart)
+
+    //     let sum = await word2Vec.add([fromPart.vector_result, toPart.vector_result])
+
+    //     console.log(sum)
+    //     let word_result = sum.nearest_words[0].word
+
+    //     // return result
+    //     let pNode = document.createElement('p')
+    //     let textNode = document.createTextNode(word_result)
+    //     let newEntry = pNode.appendChild(textNode)
+    //     let lineBreak = document.createElement('br')
+    //     resultDiv.appendChild(newEntry)
+    //     resultDiv.appendChild(lineBreak)
+    //   }
+
+    // }
+
+
+  </script>
+
+</body>
+</html>
