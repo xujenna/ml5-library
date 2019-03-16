@@ -34,3 +34,5 @@ module.exports = {
   tf,
   version,
 };
+
+console.log('HELLO');

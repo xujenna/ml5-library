@@ -6,10 +6,11 @@
 /*
 Word2Vec
 */
-
+// import * as similarity from 'compute-cosine-similarity';
 import * as tf from '@tensorflow/tfjs';
 import callCallback from '../utils/callcallback';
 
+// const similarity = require('compute-cosine-similarity');
 
 class Word2Vec {
   constructor(modelPath, callback) {
@@ -46,8 +47,12 @@ class Word2Vec {
 
     await this.ready;
     return tf.tidy(() => {
-      const sum = Word2Vec.addOrSubtract(this.model, inputs, 'ADD');
-      const result = Word2Vec.nearest(this.model, sum, inputs.length, inputs.length + max);
+      const sum = Word2Vec.operate(this.model, inputs, 'ADD');
+      const nearest = Word2Vec.nearest(this.model, sum, inputs.length, inputs.length + max);
+      const result = {
+        vector_result: sum.dataSync(),
+        nearest_words: nearest,
+      };
       if (callback) {
         callback(undefined, result);
       }
@@ -60,8 +65,46 @@ class Word2Vec {
 
     await this.ready;
     return tf.tidy(() => {
-      const subtraction = Word2Vec.addOrSubtract(this.model, inputs, 'SUBTRACT');
-      const result = Word2Vec.nearest(this.model, subtraction, inputs.length, inputs.length + max);
+      const subtraction = Word2Vec.operate(this.model, inputs, 'SUBTRACT');
+      const nearest = Word2Vec.nearest(this.model, subtraction, inputs.length, inputs.length + max);
+      const result = {
+        vector_result: subtraction.dataSync(),
+        nearest_words: nearest,
+      };
+      if (callback) {
+        callback(undefined, result);
+      }
+      return result;
+    });
+  }
+
+  async divide(inputs, maxOrCb, cb) {
+    const { max, callback } = Word2Vec.parser(maxOrCb, cb, 10);
+    await this.ready;
+    return tf.tidy(() => {
+      const division = Word2Vec.operate(this.model, inputs, 'DIVIDE');
+      const nearest = Word2Vec.nearest(this.model, division, inputs.length, inputs.length + max);
+      const result = {
+        vector_result: division.dataSync(),
+        nearest_words: nearest,
+      };
+      if (callback) {
+        callback(undefined, result);
+      }
+      return result;
+    });
+  }
+
+  async multiply(inputs, maxOrCb, cb) {
+    const { max, callback } = Word2Vec.parser(maxOrCb, cb, 10);
+    await this.ready;
+    return tf.tidy(() => {
+      const product = Word2Vec.operate(this.model, inputs, 'MULTIPLY');
+      const nearest = Word2Vec.nearest(this.model, product, inputs.length, inputs.length + max);
+      const result = {
+        vector_result: product.dataSync(),
+        nearest_words: nearest,
+      };
       if (callback) {
         callback(undefined, result);
       }
@@ -74,7 +117,7 @@ class Word2Vec {
 
     await this.ready;
     return tf.tidy(() => {
-      const sum = Word2Vec.addOrSubtract(this.model, inputs, 'ADD');
+      const sum = Word2Vec.operate(this.model, inputs, 'ADD');
       const avg = tf.div(sum, tf.tensor(inputs.length));
       const result = Word2Vec.nearest(this.model, avg, inputs.length, inputs.length + max);
       if (callback) {
@@ -91,7 +134,7 @@ class Word2Vec {
     const vector = this.model[input];
     let result;
     if (vector) {
-      result = Word2Vec.nearest(this.model, vector, 1, max + 1);
+      result = Word2Vec.nearest(this.model, vector, 0, max);
     } else {
       result = null;
     }
@@ -124,7 +167,7 @@ class Word2Vec {
     return { max, callback };
   }
 
-  static addOrSubtract(model, values, operation) {
+  static operate(model, values, operation) {
     return tf.tidy(() => {
       const vectors = [];
       const notFound = [];
@@ -132,11 +175,17 @@ class Word2Vec {
         throw new Error('Invalid input, must be passed more than 1 value');
       }
       values.forEach((value) => {
-        const vector = model[value];
-        if (!vector) {
-          notFound.push(value);
-        } else {
-          vectors.push(vector);
+        if (typeof value === 'string') {
+          const vector = model[value];
+          if (!vector) {
+            notFound.push(value);
+          } else {
+            vectors.push(vector);
+          }
+        } else if (typeof value === 'number') {
+          vectors.push(tf.scalar(value));
+        } else if (typeof value === 'object') {
+          vectors.push(value);
         }
       });
 
@@ -148,9 +197,17 @@ class Word2Vec {
         for (let i = 1; i < vectors.length; i += 1) {
           result = tf.add(result, vectors[i]);
         }
-      } else {
+      } else if (operation === 'SUBTRACT') {
         for (let i = 1; i < vectors.length; i += 1) {
           result = tf.sub(result, vectors[i]);
+        }
+      } else if (operation === 'DIVIDE') {
+        for (let i = 1; i < vectors.length; i += 1) {
+          result = tf.div(result, vectors[i]);
+        }
+      } else if (operation === 'MULTIPLY') {
+        for (let i = 1; i < vectors.length; i += 1) {
+          result = tf.mul(result, vectors[i]);
         }
       }
       return result;
@@ -160,8 +217,15 @@ class Word2Vec {
   static nearest(model, input, start, max) {
     const nearestVectors = [];
     Object.keys(model).forEach((word) => {
-      const distance = tf.util.distSquared(input.dataSync(), model[word].dataSync());
-      nearestVectors.push({ word, distance });
+      // const distance = tf.losses.cosineDistance(input, model[word]);
+      const vector = model[word].dataSync();
+      // const distance = tf.util.distSquared(input.dataSync(), model[word].dataSync());
+      // const cosineSimilarity = similarity(input.dataSync(), model[word].dataSync());
+      const x = input.dataSync();
+      const y = model[word].dataSync();
+
+      const cosineSimilarity = tf.dot(x, y) / (tf.sqrt(tf.dot(x, x)) * tf.sqrt(tf.dot(y, y)));
+      nearestVectors.push({ word, cosineSimilarity, vector });
     });
     nearestVectors.sort((a, b) => a.distance - b.distance);
     return nearestVectors.slice(start, max);
