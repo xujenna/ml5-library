@@ -5,6 +5,8 @@ node_modules
 **/npm-debug.log
 .vscode
 *.DS_STORE
+experiments
+manual-test
 training/lstm/data/t
 .cache
 /public
